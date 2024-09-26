@@ -1,38 +1,36 @@
-import asyncio
-import logging
+import os
 from aiogram import Bot, Dispatcher, types
-from aiogram.filters.command import Command
-from dotenv import load_dotenv
-from os import getenv
-
-load_dotenv()
-token = getenv("BOT_TOKEN")
-bot = Bot(token=token)
-dp = Dispatcher()
+from aiogram.contrib.fsm_storage.memory import MemoryStorage
+from aiogram.utils import executor
+from decouple import config
 
 
-@dp.message(Command("start"))
-async def command_start_handler(message: types.Message):
-    await message.answer("Привет, я бот группы 45-1, Ибраимовой Кумушай")
+TOKEN = config('TELEGRAM_TOKEN')
 
 
-@dp.message(Command('picture'))
-async def picture_handler(message: types.Message):
-    image = types.FSInputFile("images/pic1.jpg")
-    await message.answer_photo(photo=image, caption=f"изображение")
+bot = Bot(token=TOKEN)
+storage = MemoryStorage()
+dp = Dispatcher(bot, storage=storage)
 
 
-@dp.message()
-async def echo_handler(message: types.Message):
+@dp.message_handler(commands=['start', 'help'])
+async def send_welcome(message: types.Message):
+    await message.reply("Привет! Напиши мне число или любое сообщение.")
+
+
+@dp.message_handler(content_types=types.ContentTypes.TEXT)
+async def echo(message: types.Message):
     if message.text.isdigit():
-        await message.answer(f'{int(message.text)**2}')
+        number = int(message.text)
+        await message.reply(number ** 2)
     else:
-        await message.answer(message.text)
+        await message.reply(message.text)
 
 
-async def main() -> None:
-    await dp.start_polling(bot)
+@dp.message_handler(content_types=types.ContentTypes.DOCUMENT)
+async def handle_docs(message: types.Message):
+    file_id = message.document.file_id
+    await bot.send_document(chat_id=message.chat.id, document=file_id)
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    asyncio.run(main())
+if __name__ == '__main__':
+    executor.start_polling(dp, skip_updates=True)
